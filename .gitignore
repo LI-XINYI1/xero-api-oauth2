@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+cache/
+
+*.log
+*.pot
+
+config.py

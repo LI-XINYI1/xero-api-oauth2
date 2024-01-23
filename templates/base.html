@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% if title %}{{ title }}{% else %}Welcome to Xero Python oauth starter{% endif %}</title>
+</head>
+
+<body>
+  <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+    <a class="nav-link" style="color:#FFFFFF" href="/">xero-python</a>
+    <div class="container">
+      <div class="collapse navbar-collapse" id="navbarNavDropdown">
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item active">
+            <a class="nav-link" href="{{ url_for('login') }}">Login</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('tenants') }}">Tenants</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('refresh_token') }}">Refresh Token </a>
+          </li>
+          <li class="nav-item">
+          <a class="nav-link" href="{{ url_for('authorize_xero') }}">Authorize Xero Organization</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+
+
+
+{% block content %}{% endblock %}
+<!--<script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js"></script>-->
+</body>
+</html>
