@@ -1,0 +1,5 @@
+# xero app: tests
+CLIENT_ID =''
+CLIENT_SECRET =''
+REDIRECT_URI=''
+WEBHOOK_KEY=''
