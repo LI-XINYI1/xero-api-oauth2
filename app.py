@@ -112,67 +112,18 @@ def index():
         code=json.dumps(xero_access, sort_keys=True, indent=4),
     )
 
-@app.route("/authorize_xero", methods=["GET"])
-@xero_token_required
-def authorize_xero():
-    # callback=url_for("oauth2callback", _external=True)
-    callback = 'http://localhost:5000/callback'
-    # callback =  'https://caad-1-87-243-242.ngrok-free.app/oauth2callback'     
-    return xero.authorize(callback_uri=callback)
-
-@app.route("/oauth2callback")
-def oauth2callback():
-    response = xero.authorized_response()
-    if response and response.get("access_token"):
-        # Store the new access token in the session
-        session["token"] = {
-            "access_token": response["access_token"],
-            "token_type": response["token_type"],
-            "expires_in": response["expires_in"],
-        }
-        session.modified = True
-
-        # Redirect back to the tenants route to list the available organizations
-        return redirect(url_for("tenants"))
-    else:
-        # Handle the case where the OAuth 2.0 authorization was not successful
-        return "OAuth authorization failed."
-
 @xero.tokengetter
 def obtain_xero_oauth2_token():
     # Use the session to retrieve the access token
     return session.get("token")
 
-
-@app.route("/tenants")
-@xero_token_required
-def tenants():
+def get_connection_id():
     identity_api = IdentityApi(api_client)
-    accounting_api = AccountingApi(api_client)
-    asset_api = AssetApi(api_client)
-
-    available_tenants = []
-    print("available_tenants: ----------------------------------------------------")
     for connection in identity_api.get_connections():
-        tenant = serialize(connection)
-        print(tenant)
         if connection.tenant_type == "ORGANISATION":
-            organisations = accounting_api.get_organisations(
-                xero_tenant_id=connection.tenant_id
-            )
-            tenant["organisations"] = serialize(organisations)
-
-        available_tenants.append(tenant)
-
-    return render_template(
-        "output.html",
-        title="Xero Tenants",
-        code=json.dumps(available_tenants, sort_keys=True, indent=4),
-        len=0
-    )
-
-
-
+            return connection.id
+    
+    
 @app.route("/login")
 def login():
     # redirect_url = url_for("oauth_callback", _external=True)
@@ -238,6 +189,68 @@ def refresh_token():
         code=jsonify({"Old Token": xero_token, "New token": new_token}),
         sub_title="token refreshed",
     )
+    
+# TODO AUTHORIZE with ORGANIZATIONS
+@app.route("/authorize_xero", methods=["GET"])
+@xero_token_required
+def authorize_xero():
+    # callback=url_for("oauth2callback", _external=True)
+    callback = 'http://localhost:5000/callback'
+    # callback =  'https://caad-1-87-243-242.ngrok-free.app/oauth2callback'     
+    return xero.authorize(callback_uri=callback)
+
+@app.route("/oauth2callback")
+def oauth2callback():
+    response = xero.authorized_response()
+    if response and response.get("access_token"):
+        # Store the new access token in the session
+        session["token"] = {
+            "access_token": response["access_token"],
+            "token_type": response["token_type"],
+            "expires_in": response["expires_in"],
+        }
+        session.modified = True
+
+        # Redirect back to the tenants route to list the available organizations
+        return redirect(url_for("tenants"))
+    else:
+        # Handle the case where the OAuth 2.0 authorization was not successful
+        return "OAuth authorization failed."
+
+
+# TODO TENANTS
+@app.route("/tenants")
+@xero_token_required
+def tenants():
+    identity_api = IdentityApi(api_client)
+    accounting_api = AccountingApi(api_client)
+    asset_api = AssetApi(api_client)
+
+    available_tenants = []
+    print("available_tenants:--------------------------------------------")
+    for connection in identity_api.get_connections():
+        tenant = serialize(connection)
+        print(tenant)
+        if connection.tenant_type == "ORGANISATION":
+            organisations = accounting_api.get_organisations(
+                xero_tenant_id=connection.tenant_id
+            )
+            tenant["organisations"] = serialize(organisations)
+
+        available_tenants.append(tenant)
+
+    return render_template(
+        "output.html",
+        title="Xero Tenants",
+        code=json.dumps(available_tenants, sort_keys=True, indent=4),
+        len=0
+    )
+    print("end:----------------------------------------------------------")
+    
+# INVOICE
+
+
+    
     
     
 if __name__ == "__main__":
