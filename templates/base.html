@@ -247,6 +247,7 @@
           </div>
           <div class="card">
             {% block content %}
+            <h3> Initialization and Preperation </h3>
             <ul>
                 <li>
                     1. Login and link to organization/tenants:
@@ -259,17 +260,23 @@
                 </li>
                 <li>
                     3. Read contacts, Update contact lists:
-                    <a href="{{ url_for('accounting_contact_read_all') }}">Link</a>
+                    <form action="{{ url_for('accounting_contact_read_all') }}" method="POST">
+                      <input type="text" name="tenant_name" placeholder="Enter Tenant Name">
+                      <button type="submit">Read Contacts</button>
+                  </form>
                 </li>
                 <li>
                     4. Read item, Update item lists:
-                    <a href="{{ url_for('accounting_item_read_all') }}">Link</a>
+                    <form action="{{ url_for('accounting_item_read_all') }}" method="POST">
+                      <input type="text" name="tenant_name_item" placeholder="Enter Tenant Name">
+                      <button type="submit">Read Items</button>
+                    </form>
                 </li>
             </ul>
         </div>
 
           <div class="card">
-            Create Invoice  </br>
+            <h3> Webhook Alert and Invoice Creation </h3>
           </div>
 
           <div class="card">
@@ -281,5 +288,6 @@
 
 {% endblock %}
 <!--<script src="https://cdn.jsdelivr.net/gh/google/code-prettify@master/loader/run_prettify.js"></script>-->
+
 </body>
 </html>
