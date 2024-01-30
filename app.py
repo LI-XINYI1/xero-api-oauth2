@@ -246,12 +246,116 @@ def tenants():
         len=0
     )
     print("end:----------------------------------------------------------")
-    
-# INVOICE
+
+def get_code_snippet(endpoint,action):
+    s = open("app.py").read()
+    startstr = "["+ endpoint +":"+ action +"]"
+    endstr = "#[/"+ endpoint +":"+ action +"]"
+    start = s.find(startstr) + len(startstr)
+    end = s.find(endstr)
+    substring = s[start:end]
+    return substring
 
 
+# TODO CONTACTs
+
+
+# TODO INVOICE
+@app.route("/invoice_read_all")
+@xero_token_required
+def invoice_read_all():
+    code = get_code_snippet("INVOICES","READ_ALL")
+    print("console output testing")
+    #[INVOICES:READ_ALL]
+    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
+    accounting_api = AccountingApi(api_client)
+
+    try:
+        invoices_read = accounting_api.get_invoices(
+            xero_tenant_id
+        )
+    except AccountingBadRequestException as exception:
+        output = "Error: " + exception.reason
+        json = jsonify(exception.error_data)
+    else:
+        output = "Total invoices found:  {}.".format(len(invoices_read.invoices)
+        )
+        json = serialize_model(invoices_read)
+    #[/INVOICES:READ_ALL]
     
+    return render_template(
+        "output.html", title="Invoices",code=code, output=output, json=json, len = 0, set="accounting", endpoint="invoice", action="read_all"
+    )
+
     
+@app.route("/invoice_read_one")
+@xero_token_required
+def invoice_read_one():
+    code = get_code_snippet("INVOICES","READ_ONE")
+    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
+    accounting_api = AccountingApi(api_client)
+
+    try:
+        read_invoices = accounting_api.get_invoices(
+            xero_tenant_id
+        )
+        invoice_id = getvalue(read_invoices, "invoices.0.invoice_id", "")
+    except AccountingBadRequestException as exception:
+        output = "Error: " + exception.reason
+        json = jsonify(exception.error_data)
+
+    #[INVOICES:READ_ONE]
+    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
+    accounting_api = AccountingApi(api_client)
+
+    try:
+        read_one_invoice = accounting_api.get_invoice(
+            xero_tenant_id, invoice_id
+        )
+    except AccountingBadRequestException as exception:
+        output = "Error: " + exception.reason
+        json = jsonify(exception.error_data)
+    else:
+        output = "Invoice read with id {} ".format(
+            getvalue(read_invoices, "invoices.0.invoice_id", "")
+        )
+        json = serialize_model(read_one_invoice)
+    #[/INVOICES:READ_ONE]
+
+    return render_template(
+        "output.html", title="Invoices", code=code, json=json, output=output, len = 0, set="accounting", endpoint="invoice", action="read_one"
+    )
+    
+# TODO ITEM
+
+@app.route("/accounting_item_read_all")
+@xero_token_required
+def accounting_item_read_all():
+    code = get_code_snippet("ITEMS","READ_ALL")
+
+    #[ITEMS:READ_ALL]
+    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
+    accounting_api = AccountingApi(api_client)
+
+    try:
+        read_items = accounting_api.get_items(
+            xero_tenant_id
+        )
+    except AccountingBadRequestException as exception:
+        output = "Error: " + exception.reason
+        json = jsonify(exception.error_data)
+    else:
+        output = "Items read {} total".format(
+            len(read_items.items)
+        )
+        json = serialize_model(read_items)
+    #[/ITEMS:READ_ALL]
+
+    return render_template(
+        "output.html", title="Items", code=code, json=json, output=output, len = 0, set="accounting", endpoint="item", action="read_all"
+    )
+     
+     
     
 if __name__ == "__main__":
-    app.run(host='localhost', port=5000, debug = True)
+    app.run(host='localhost', port=5006, debug = True)
