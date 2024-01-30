@@ -243,12 +243,39 @@
             You'll be able to connect to a Xero Organisation and <strong>make real API calls</strong> - we recommend you
             connect to the Demo company.
             <br>
-            <a href="https://developer.xero.com/documentation/getting-started/development-accounts" target="_blank">Learn
-              about using the Demo Company for development</a>
+            <a href="https://developer.xero.com/documentation/getting-started/development-accounts" target="_blank">Learn about using the Demo Company for development</a>
           </div>
           <div class="card">
             {% block content %}
+            <ul>
+                <li>
+                    1. Login and link to organization/tenants:
+                    <a href="{{ url_for('login') }}">Login Link</a>&nbsp;
+                    <a href="{{ url_for('authorize_xero') }}">Authorize Link</a>
+                </li>
+                <li>
+                    2. Read tenants, Update tenant lists:
+                    <a href="{{ url_for('tenants') }}">Link</a>
+                </li>
+                <li>
+                    3. Read contacts, Update contact lists:
+                    <a href="{{ url_for('accounting_contact_read_all') }}">Link</a>
+                </li>
+                <li>
+                    4. Read item, Update item lists:
+                    <a href="{{ url_for('accounting_item_read_all') }}">Link</a>
+                </li>
+            </ul>
+        </div>
+
+          <div class="card">
+            Create Invoice  </br>
           </div>
+
+          <div class="card">
+            Webhook Alerts with new creation  </br>
+          </div>          
+
         </div><!-- Main Col END -->
       </div><!-- body-row END -->
 

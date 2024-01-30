@@ -259,6 +259,112 @@ def get_code_snippet(endpoint,action):
 
 # TODO CONTACTs
 
+@app.route("/accounting_contact_read_all")
+@xero_token_required
+def accounting_contact_read_all():
+    code = get_code_snippet("CONTACTS","READ_ALL")
+
+    #[CONTACTS:READ_ALL]
+    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
+    accounting_api = AccountingApi(api_client)
+
+    try:
+        read_contacts = accounting_api.get_contacts(
+            xero_tenant_id
+        )
+    except AccountingBadRequestException as exception:
+        output = "Error: " + exception.reason
+        json = jsonify(exception.error_data)
+    else:
+        output = "Contact(s) read {} total".format(
+            len(read_contacts.contacts)
+        )
+        json = serialize_model(read_contacts)
+    #[/CONTACTS:READ_ALL]
+
+    return render_template(
+        "output.html", title="Contacts", code=code, json=json, output=output, len = 0, set="accounting", endpoint="contact", action="read_all"
+    )
+
+@app.route("/accounting_contact_read_one")
+@xero_token_required
+def accounting_contact_read_one():
+    code = get_code_snippet("CONTACTS","READ_ONE")
+    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
+    accounting_api = AccountingApi(api_client)
+
+    try:
+        read_contacts = accounting_api.get_contacts(
+            xero_tenant_id
+        )
+        contact_id = getvalue(read_contacts, "contacts.0.contact_id", "")
+    except AccountingBadRequestException as exception:
+        output = "Error: " + exception.reason
+        json = jsonify(exception.error_data)
+
+    #[CONTACTS:READ_ONE]
+    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
+    accounting_api = AccountingApi(api_client)
+
+    try:
+        read_one_contact = accounting_api.get_contact(
+            xero_tenant_id, contact_id
+        )
+    except AccountingBadRequestException as exception:
+        output = "Error: " + exception.reason
+        json = jsonify(exception.error_data)
+    else:
+        output = "Contact read with id {} ".format(
+            getvalue(read_one_contact, "contacts.0.contact_id", "")
+        )
+        json = serialize_model(read_one_contact)
+    #[/CONTACTS:READ_ONE]
+
+    return render_template(
+        "output.html", title="Contacts", code=code, json=json, output=output, len = 0, set="accounting", endpoint="contact", action="read_one"
+    )
+
+@app.route("/accounting_contact_read_one_by_contact_number")
+@xero_token_required
+def accounting_contact_read_one_by_contact_number():
+    code = get_code_snippet("CONTACTS","READ_ONE_BY_CONTACT_NUMBER")
+    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
+    accounting_api = AccountingApi(api_client)
+
+    try:
+        read_contacts = accounting_api.get_contacts(
+            xero_tenant_id
+        )
+        contact_number = getvalue(read_contacts, "contacts.0.contact_number", "")
+    except AccountingBadRequestException as exception:
+        output = "Error: " + exception.reason
+        json = jsonify(exception.error_data)
+
+    #[CONTACTS:READ_ONE_BY_CONTACT_NUMBER]
+    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
+    accounting_api = AccountingApi(api_client)
+
+    contact_number=contact_number
+
+    try:
+        read_one_contact = accounting_api.get_contact_by_contact_number(
+            xero_tenant_id, contact_number
+        )
+    except AccountingBadRequestException as exception:
+        output = "Error: " + exception.reason
+        json = jsonify(exception.error_data)
+    else:
+        output = "Contact read with number {} ".format(
+            getvalue(read_one_contact, "contacts.0.contact_number", "")
+        )
+        json = serialize_model(read_one_contact)
+    #[/CONTACTS:READ_ONE_BY_CONTACT_NUMBER]
+
+    return render_template(
+        "output.html", title="Contacts", code=code, json=json, output=output, len = 0, set="accounting", endpoint="contact", action="read_one_by_number"
+    )
+
+
 
 # TODO INVOICE
 @app.route("/invoice_read_all")
