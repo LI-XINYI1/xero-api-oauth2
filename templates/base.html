@@ -275,10 +275,14 @@
         </div>
 
           <div class="card">
-            <h3> Invoice Reading ALL </h3>
+            <h3> Invoice Reading  </h3>
             <form action="{{ url_for('invoice_read_all') }}" method="POST">
               <input type="text" name="tenant_name_invoice_read" value="Demo Company (Global)">
               <button type="submit">Read Invoices</button>
+            </form>
+            <form action="{{ url_for('invoice_read_one') }}" method="POST">
+              <input type="text" name="tenant_name_invoice_read_one" value="Demo Company (Global)">
+              <button type="submit">Read ONE TEST Invoice</button>
             </form>
           </div>
 
