@@ -5,6 +5,7 @@ import re
 import mimetypes
 
 from dateutil.parser import parse
+from datetime import datetime, timedelta
 from pathlib import Path
 from random import seed
 from random import randint
@@ -47,7 +48,7 @@ Session(app)
 
 
 # configure flask-oauthlib application
-# TODO fetch config from https://identity.xero.com/.well-known/openid-configuration #1
+# DONE fetch config from https://identity.xero.com/.well-known/openid-configuration #1
 oauth = OAuth(app)
 xero = oauth.remote_app(
     name="xero",
@@ -140,7 +141,6 @@ def oauth_callback():
     except Exception as e:
         print(e)
         raise
-    # todo validate state value
     if response is None or response.get("access_token") is None:
         return "Access denied: response=%s" % response
     store_xero_oauth2_token(response)
@@ -190,7 +190,7 @@ def refresh_token():
         sub_title="token refreshed",
     )
     
-# TODO AUTHORIZE with ORGANIZATIONS
+# DONE AUTHORIZE with ORGANIZATIONS
 @app.route("/authorize_xero", methods=["GET"])
 @xero_token_required
 def authorize_xero():
@@ -218,7 +218,7 @@ def oauth2callback():
         return "OAuth authorization failed."
 
 
-# TODO TENANTS
+# DONE TENANTS
 @app.route("/tenants")
 @xero_token_required
 def tenants():
@@ -248,7 +248,7 @@ def tenants():
 
 
 
-# TODO CONTACTs
+# DONE CONNTACTs
 
 @app.route("/accounting_contact_read_all", methods=["GET", "POST"])
 @xero_token_required
@@ -274,158 +274,252 @@ def accounting_contact_read_all():
             )
         except AccountingBadRequestException as exception:
             output = "Error: " + exception.reason
-            json = jsonify(exception.error_data)
+            json_rlt = jsonify(exception.error_data)
         else:
             output = "Contact(s) read {} total".format(
                 len(read_contacts.contacts)
             )
-            json = serialize_model(read_contacts)
+            json_rlt = serialize_model(read_contacts)
 
-        session["contacts"] = json
+        # print(json_rlt)   # DELETE
+        
+        # NOTE: same contact in different ORGANIZATION has DIFFERENT ID
+        # TODO: in this case, when initializtion, need to do contact_read_all for EACH TENANTS????  (or DB initialization)
+        # TODO: AUTO CONTACT CREATION if a contact if not exist in an organization
+        session_name = "contacts_" + tenant_name
+        session[session_name] = json_rlt
         session["contacts_updated"] = True
         
         print("Contacts loaded successfully.")
         
     return redirect(request.referrer)
 
+# REVIEW CONTACTS - HOW FETCH CONTACTS????
+#       Either: 1. read all, store in db (session[contacts] for now),
+#                  fetch contactID by name
+#               2. read one by one by accounting_contact_read_one[not done yet]
+def find_contact_id_by_name(read_contacts, contact_name):
+        for index, data in enumerate(read_contacts.contacts):
+            contact_name_temp = getvalue(read_contacts, "contacts."+ str(index) + ".name", "")   
+            print(contact_name_temp)
+            if contact_name_temp == contact_name:
+                contact_id = getvalue(read_contacts, "contacts."+ str(index) + ".contact_id", "")
+                print("contact_id recieved")
+                return contact_id
+        return None
 
-@app.route("/accounting_contact_read_one")
-@xero_token_required
-def accounting_contact_read_one():
-    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
-    accounting_api = AccountingApi(api_client)
 
-    try:
-        read_contacts = accounting_api.get_contacts(
-            xero_tenant_id
-        )
-        contact_id = getvalue(read_contacts, "contacts.0.contact_id", "")
-    except AccountingBadRequestException as exception:
-        output = "Error: " + exception.reason
-        json = jsonify(exception.error_data)
+# @app.route("/accounting_contact_read_one_by_contact_number")
+# @xero_token_required
+# def accounting_contact_read_one_by_contact_number():
+#     xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
+#     accounting_api = AccountingApi(api_client)
 
-    #[CONTACTS:READ_ONE]
-    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
-    accounting_api = AccountingApi(api_client)
+#     try:
+#         read_contacts = accounting_api.get_contacts(
+#             xero_tenant_id
+#         )
+#         contact_number = getvalue(read_contacts, "contacts.0.contact_number", "")
+#     except AccountingBadRequestException as exception:
+#         output = "Error: " + exception.reason
+#         json = jsonify(exception.error_data)
 
-    try:
-        read_one_contact = accounting_api.get_contact(
-            xero_tenant_id, contact_id
-        )
-    except AccountingBadRequestException as exception:
-        output = "Error: " + exception.reason
-        json = jsonify(exception.error_data)
-    else:
-        output = "Contact read with id {} ".format(
-            getvalue(read_one_contact, "contacts.0.contact_id", "")
-        )
-        json = serialize_model(read_one_contact)
-    #[/CONTACTS:READ_ONE]
+#     #[CONTACTS:READ_ONE_BY_CONTACT_NUMBER]
+#     xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
+#     accounting_api = AccountingApi(api_client)
 
-    return json
+#     contact_number=contact_number
 
-@app.route("/accounting_contact_read_one_by_contact_number")
-@xero_token_required
-def accounting_contact_read_one_by_contact_number():
-    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
-    accounting_api = AccountingApi(api_client)
+#     try:
+#         read_one_contact = accounting_api.get_contact_by_contact_number(
+#             xero_tenant_id, contact_number
+#         )
+#     except AccountingBadRequestException as exception:
+#         output = "Error: " + exception.reason
+#         json = jsonify(exception.error_data)
+#     else:
+#         output = "Contact read with number {} ".format(
+#             getvalue(read_one_contact, "contacts.0.contact_number", "")
+#         )
+#         json = serialize_model(read_one_contact)
+#     #[/CONTACTS:READ_ONE_BY_CONTACT_NUMBER]
 
-    try:
-        read_contacts = accounting_api.get_contacts(
-            xero_tenant_id
-        )
-        contact_number = getvalue(read_contacts, "contacts.0.contact_number", "")
-    except AccountingBadRequestException as exception:
-        output = "Error: " + exception.reason
-        json = jsonify(exception.error_data)
-
-    #[CONTACTS:READ_ONE_BY_CONTACT_NUMBER]
-    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
-    accounting_api = AccountingApi(api_client)
-
-    contact_number=contact_number
-
-    try:
-        read_one_contact = accounting_api.get_contact_by_contact_number(
-            xero_tenant_id, contact_number
-        )
-    except AccountingBadRequestException as exception:
-        output = "Error: " + exception.reason
-        json = jsonify(exception.error_data)
-    else:
-        output = "Contact read with number {} ".format(
-            getvalue(read_one_contact, "contacts.0.contact_number", "")
-        )
-        json = serialize_model(read_one_contact)
-    #[/CONTACTS:READ_ONE_BY_CONTACT_NUMBER]
-
-    return json
+#     return json
 
 
 
-# TODO INVOICE
-@app.route("/invoice_read_all")
+# DONE INVOICE READ ALL
+@app.route("/invoice_read_all", methods=["GET", "POST"])
 @xero_token_required
 def invoice_read_all():
 
-    print("console output testing")
-    #[INVOICES:READ_ALL]
-    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
-    accounting_api = AccountingApi(api_client)
-
-    try:
-        invoices_read = accounting_api.get_invoices(
-            xero_tenant_id
-        )
-    except AccountingBadRequestException as exception:
-        output = "Error: " + exception.reason
-        json = jsonify(exception.error_data)
-    else:
-        output = "Total invoices found:  {}.".format(len(invoices_read.invoices)
-        )
-        json = serialize_model(invoices_read)
-    #[/INVOICES:READ_ALL]
-    
-    return json
-
-    
-@app.route("/invoice_read_one")
-@xero_token_required
-def invoice_read_one():
+    if request.method == "POST":
+        tenant_name = request.form.get("tenant_name_invoice_read")
+        xero_tenant_id = None    
    
-    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
-    accounting_api = AccountingApi(api_client)
+        for tenant_data in session.get("tenants", []):
+            if tenant_data["tenantName"] == tenant_name:
+                xero_tenant_id = tenant_data["tenantId"]
+                break
 
-    try:
-        read_invoices = accounting_api.get_invoices(
-            xero_tenant_id
-        )
-        invoice_id = getvalue(read_invoices, "invoices.0.invoice_id", "")
-    except AccountingBadRequestException as exception:
-        output = "Error: " + exception.reason
-        json = jsonify(exception.error_data)
+        if xero_tenant_id is None:
+            print("Tenant not found.")
+            return redirect(request.referrer)
+  
+        accounting_api = AccountingApi(api_client)
 
-    #[INVOICES:READ_ONE]
-    xero_tenant_id = 'a477f7c2-71d5-44ad-87bb-82ec85e2e62e'
-    accounting_api = AccountingApi(api_client)
+        try:
+            invoices_read = accounting_api.get_invoices(
+                xero_tenant_id
+            )
+        except AccountingBadRequestException as exception:
+            output = "Error: " + exception.reason
+            json_rlt = jsonify(exception.error_data)
+        else:
+            output = "Total invoices found:  {}.".format(len(invoices_read.invoices)
+            )
+            json_rlt = serialize_model(invoices_read)
+            
+        session["invoices"] = json
+        session["invoices_updated"] = True
+        
+        print("Invoices loaded successfully.")
+        
+    return redirect(request.referrer)
 
-    try:
-        read_one_invoice = accounting_api.get_invoice(
-            xero_tenant_id, invoice_id
-        )
-    except AccountingBadRequestException as exception:
-        output = "Error: " + exception.reason
-        json = jsonify(exception.error_data)
-    else:
-        output = "Invoice read with id {} ".format(
-            getvalue(read_invoices, "invoices.0.invoice_id", "")
-        )
-        json = serialize_model(read_one_invoice)
-    #[/INVOICES:READ_ONE]
 
-    return json
+# # TODO invoice read one FOR WEBHOOK UPDATES    
+# @app.route("/invoice_read_one/<invoice_id>")
+# @xero_token_required
+# def invoice_read_one(invoice_id):
     
-# TODO ITEM
+#     print("enter invoice read function")
+#     xero_tenant_id = session['webhook_info']['tenantID']
+#     accounting_api = AccountingApi(api_client)
+
+#     try:
+#         print("flag1")
+#         read_one_invoice = accounting_api.get_invoice(
+#             xero_tenant_id, invoice_id
+#         )
+        
+#     except AccountingBadRequestException as exception:
+#         output = "Error: " + exception.reason
+#         json = jsonify(exception.error_data)
+#         return jsonify(exception.error_data), 400
+#     else:
+#         output = "Invoice read with id {} ".format(invoice_id)
+#         json = serialize_model(read_one_invoice)
+#         print(json)
+#         session['invoicetest'] = json 
+#         return jsonify(serialize_model(read_one_invoice))
+
+
+
+# TODO INVOICE CREATION:  mannul
+# reference doc: https://developer.xero.com/documentation/api/accounting/invoices
+@app.route("/invoice_create", methods=["GET", "POST"])
+@xero_token_required
+def invoice_create():
+
+    if request.method == "POST":
+        
+        # 1. Get tenant_id
+        tenant_name = request.form.get("tenant_name_invoice_creation")
+        xero_tenant_id = None    
+        for tenant_data in session.get("tenants", []):
+            if tenant_data["tenantName"] == tenant_name:
+                xero_tenant_id = tenant_data["tenantId"]
+                break   
+        
+        accounting_api = AccountingApi(api_client)    
+        
+        # 2. Get contact_id
+        contact_id = None
+        try:
+            read_contacts = accounting_api.get_contacts(
+                xero_tenant_id
+            )
+        except AccountingBadRequestException as exception:
+            output = "Error: " + exception.reason
+            json_rlt = jsonify(exception.error_data)     
+        # print(read_contacts)   
+        contact_name = request.form.get("contact_name_invoice_creation")
+        for index, data in enumerate(read_contacts.contacts):
+            contact_name_temp = getvalue(read_contacts, "contacts."+ str(index) + ".name", "")   
+            if contact_name_temp == contact_name:
+                contact_id = getvalue(read_contacts, "contacts."+ str(index) + ".contact_id", "")
+                print("contact_id recieved")
+                break
+        if contact_id == None:
+            print("Contact not found.")
+            return redirect(request.referrer)         
+        
+        
+        # REVIEW in practice, lineitem & contact & accounts are all required
+        #        if target tenant dont have any, need to create and update DB
+
+        
+        where = "Type==\"SALES\"&&Status==\"ACTIVE\""
+        try:
+            read_accounts = accounting_api.get_accounts(
+                xero_tenant_id, where=where
+            )
+            # OPTIMIZE STATE ACCOUNTING ID instaed of get defualt one
+            account_id = getvalue(read_accounts, "accounts.0.account_id", "")
+        except AccountingBadRequestException as exception:
+            output = "Error: " + exception.reason
+            json_rlt = jsonify(exception.error_data)
+
+        accounting_api = AccountingApi(api_client)
+
+        contact = Contact(
+            contact_id=contact_id
+        )
+
+        # OPTIMIZE STATE ACCOUNTING ID instaed of get defualt one
+        line_item = LineItem(
+            account_code=account_id,
+            description= "Consulting",
+            quantity=1.0,
+            unit_amount=10.0,
+        )
+
+        # OPTIMIZE input date and due_date instead of default
+        invoice = Invoice(
+            line_items=[line_item],
+            contact=contact,
+            date= datetime.now().replace(hour=0, minute=0, second=0, microsecond=0),
+            due_date= datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=2),
+            type="ACCREC"
+        )
+
+        invoices = Invoices(invoices=[invoice])
+
+        try:
+            created_invoices = accounting_api.create_invoices(
+                xero_tenant_id, invoices=invoices
+            )
+        except AccountingBadRequestException as exception:
+            output = "Error: " + exception.reason
+            json_rlt = jsonify(exception.error_data)
+        else:
+            output = "New invoices status is '{}'.".format(
+                getvalue(created_invoices, "invoices.0.status", "")
+            )
+            json_rlt = serialize_model(created_invoices)
+            print(output)
+            print(json_rlt)
+            print("check new invoice status ----------------------------")
+    return  redirect(request.referrer)
+
+
+# TODO invoice creation: for WEBHOOK
+
+
+
+  
+# DONE ITEM
 
 @app.route("/accounting_item_read_all", methods=["GET", "POST"])
 @xero_token_required
@@ -452,13 +546,15 @@ def accounting_item_read_all():
             )
         except AccountingBadRequestException as exception:
             output = "Error: " + exception.reason
-            json = jsonify(exception.error_data)
+            json_rlt = jsonify(exception.error_data)
         else:
             output = "Items read {} total".format(
                 len(read_items.items)
             )
-            json = serialize_model(read_items)
-            
+            json_rlt = serialize_model(read_items)
+        
+        # print(json)
+        
         session["items"] = json
         session["items_updated"] = True
         
@@ -467,6 +563,110 @@ def accounting_item_read_all():
     return redirect(request.referrer)
      
      
+# TODO WEBHOOKs
+webhook_key = app.config["WEBHOOK_KEY"]
+ 
+@app.route('/webhooks', methods=['POST'])
+def webhook_receiver():
+
+    print("")
+    print("receiving webhook: -------------------------------------------------------")
+    req_body = request.data
+    req_signature = request.headers.get('X-Xero-Signature')
+
+    parsed = json.loads(req_body)
+    print(json.dumps(parsed, indent=4))
+    print(req_signature)
+
+        
+    if verify_webhook_signature(req_body, req_signature):
+        print("Webhook event received!")
+        print("response status 200")
+        print("ready for read new invoice")
+        
+        try:
+            event_type = parsed.get('events')[-1].get('eventType')
+            tenant_id = parsed.get('events')[-1].get('tenantId')
+            resource_id = parsed.get('events')[-1].get('resourceId')
+        except Exception as e:
+            return Response(status=200)
+        
+        print("event ")
+        print(event_type)
+        print("tenant ")
+        print(tenant_id)
+        print("resource ")
+        print(resource_id)
+        
+        session['webhook_info'] = {
+            "eventType": event_type,
+            "tenantID": tenant_id,
+            "resourceID": resource_id
+        }
+        
+        # REVIEW define the read and create function inside webhook reciever
+        #        or will it be better to seperate them 
+        # TODO   flow2: update invoice
+        
+        # DONE   auto create new invoice
+        #        HERE should only be CREATE only, UPDATE is only used for testing
+        if event_type == "CREATE" or event_type == "UPDATE":
+        #   return redirect(url_for('invoice_read_one', invoice_id=resource_id))
+            
+            print("start read the newly-created invoice --------------")
+            xero_tenant_id = session['webhook_info']['tenantID']
+            invoice_id = session['webhook_info']['resourceID']
+            print("xero_tenant_id and invoice_id")
+            print(xero_tenant_id)
+            print(invoice_id)
+
+            accounting_api = AccountingApi(api_client)
+            try:
+                read_one_invoice = accounting_api.get_invoice(
+                    xero_tenant_id, invoice_id
+                )
+            except AccountingBadRequestException as exception:
+                output = "Error: " + exception.reason
+                json_rlt = jsonify(exception.error_data)
+                return jsonify(exception.error_data), 400
+            else:
+                output = "Invoice read with id {} ".format(invoice_id)
+                json_rlt = serialize_model(read_one_invoice)
+                print("Here is the new invoice-------------------------------")
+                print(json_rlt)
+                session['invoice_new'] = json_rlt 
+                print("Invoice read ends -------------------------------------")
+            
+            print("start create the invoice --------------")    
+            # TODO choose the correct xero-tenant 
+
+        
     
+        
+        return Response(status=200)
+    
+    else:
+        print("Webhook event rejected!")
+        print("response status 401")
+        print("")
+        return Response(status=401)
+
+def verify_webhook_signature(request_body, signature_header):
+
+    print("in verify_webhook_signature")
+
+    computed_signature = hmac.new(webhook_key.encode('utf-8'), request_body, hashlib.sha256).digest()
+    computed_signature_base64 = base64.b64encode(computed_signature).decode('utf-8')
+
+    if signature_header == computed_signature_base64:
+        print('Signature passed! This is from Xero!')
+        return True
+    else:
+        # If this happens, someone who is not Xero is sending you a webhook
+        print('Signature failed. Webhook might not be from Xero or you have misconfigured something...')
+        print(f'Got {computed_signature_base64} when we were expecting {signature_header}')
+        return False   
+   
+ 
 if __name__ == "__main__":
     app.run(host='localhost', port=5000, debug = True)
