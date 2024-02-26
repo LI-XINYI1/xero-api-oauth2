@@ -81,6 +81,10 @@ api_client = ApiClient(
 )
 
 # configure token persistence and exchange point between flask-oauthlib and xero-python
+@app.route("/token")
+def gettoekn():
+    return session.get("token")
+
 @xero.tokengetter
 @api_client.oauth2_token_getter
 def obtain_xero_oauth2_token():
@@ -251,7 +255,7 @@ def tenants():
 
 # DONE CONNTACTs
 
-@app.route("/accounting_contact_read_all", methods=["GET", "POST"])
+@app.route("/contact_read_all", methods=["GET", "POST"])
 @xero_token_required
 def accounting_contact_read_all():
     if request.method == "POST":
@@ -431,29 +435,77 @@ def invoice_read_one():
             
     return redirect(request.referrer)
 
+# TODO NEW invoice read      
+@app.route("/invoice_read_new", methods=["GET", "POST"])
+@xero_token_required
+def invoice_read_new():
+    
+    print("enter invoice read function")
+
+    # if request.method == "POST":
+    #     tenant_name = request.form.get("tenant_name_invoice_read_one")
+    #     xero_tenant_id = None    
+   
+    #     for tenant_data in session.get("tenants", []):
+    #         if tenant_data["tenantName"] == tenant_name:
+    #             xero_tenant_id = tenant_data["tenantId"]
+    #             break
+
+    #     if xero_tenant_id is None:
+    #         print("Tenant not found.")
+    #         return redirect(request.referrer)
+    
+    accounting_api = AccountingApi(api_client)
+    i = 1
+    print(session)
+    for info in session['webhook_info']:
+        # webhook_info = {
+        #     "eventType": event_type,
+        #     "tenantID": tenant_id,
+        #     "resourceID": resource_id
+        # }
+        xero_tenant_id = info['tenantID']
+        invoice_id = info["resourceID"]
+        print(info.__dict__)
+        try:
+            print("flag1")
+            read_one_invoice = accounting_api.get_invoice(
+                xero_tenant_id, invoice_id
+            )
+        except AccountingBadRequestException as exception:
+            output = "Error: " + exception.reason
+            json = jsonify(exception.error_data)
+            return jsonify(exception.error_data), 400
+        else:
+            output = "Invoice read with id {} ".format(invoice_id)
+            json_file = serialize_model(read_one_invoice)
+            print(json_file)
+            print("Invoices loaded successfully." + i)
+            
+    return redirect(request.referrer)
+
 
 # TODO invoice_read_one for webhook
 @xero_token_required
 def read_invoice_one_webhook(tenant_id, invoice_id):
-    
     accounting_api = AccountingApi(api_client)
 
     try:
         new_token = api_client.refresh_oauth2_token()
     except Exception as e:
         print(f"Error refreshing token: {e}")
-        return "error1"
+        return jsonify({"error": "error1"}), 401  # Or any appropriate status code
 
     try:
         read_one_invoice = accounting_api.get_invoice(tenant_id, invoice_id)
     except AccountingBadRequestException as exception:
         print("Error: " + exception.reason)
-        print(jsonify(exception.error_data))
-        return "error2"
+        return jsonify({"error": "error2", "details": exception.error_data}), 400  # Or any appropriate status code
     else:
-        output = "Invoice read with id {} ".format(invoice_id)
-        json_rlt = serialize_model(read_one_invoice)
-        return json_rlt
+        # Assuming serialize_model returns a JSON string
+        json_rlt = json.loads(serialize_model(read_one_invoice))
+        # Or if serialize_model returns a dictionary, just use json_rlt = serialize_model(read_one_invoice)
+        return jsonify(json_rlt)
     
 
 
@@ -619,7 +671,11 @@ def webhook_receiver():
     # print(json.dumps(parsed, indent=4))
     print(req_signature)
 
-        
+    if 'webhook_info' not in session:
+        # If the key doesn't exist, initialize it with an empty list
+            session['webhook_info'] = [] 
+            print("init webhook info")
+            
     if verify_webhook_signature(req_body, req_signature):
         print("Webhook event received!")
         print("response status 200")
@@ -640,11 +696,15 @@ def webhook_receiver():
         print("resource ")
         print(resource_id)
         
-        session['webhook_info'] = {
+        webhook_info = {
             "eventType": event_type,
             "tenantID": tenant_id,
             "resourceID": resource_id
         }
+        
+        session['webhook_info'].append(webhook_info)
+        print("stored webhook info")
+        print(session['webhook_info'])
         
         # REVIEW define the read and create function inside webhook reciever
         #        or will it be better to seperate them 
@@ -652,47 +712,58 @@ def webhook_receiver():
         
         # DONE   auto create new invoice
         #        HERE should only be CREATE only, UPDATE is only used for testing
-        if event_type == "CREATE" or event_type == "UPDATE":
-        #   return redirect(url_for('invoice_read_one', invoice_id=resource_id))
+        
+        # if event_type == "CREATE" or event_type == "UPDATE":
+        # #   return redirect(url_for('invoice_read_one', invoice_id=resource_id))
             
-            print("start read the newly-created invoice --------------")
-            xero_tenant_id = session['webhook_info']['tenantID']
-            invoice_id = session['webhook_info']['resourceID']
-            print("xero_tenant_id and invoice_id")
-            print(xero_tenant_id)
-            print(invoice_id)
+        #     print("start read the newly-created invoice --------------")
+        #     xero_tenant_id = session['webhook_info']['tenantID']
+        #     invoice_id = session['webhook_info']['resourceID']
+        #     print("xero_tenant_id and invoice_id")
+        #     print(xero_tenant_id)
+        #     print(invoice_id)
             
-            rlt = read_invoice_one_webhook(xero_tenant_id, invoice_id)
-            print("here is the reading rlt -----------")
-            print(rlt)
-            accounting_api = AccountingApi(api_client)
+        #     # rlt = read_invoice_one_webhook(xero_tenant_id, invoice_id)
+        #     # print("here is the reading rlt -----------")
+        #     # print(rlt)
+        #     # print("Type of rlt:", type(rlt))
+        #     # print(rlt.data.decode('utf-8'))
+            
+        #     # response_data = rlt.data.decode('utf-8')
+        #     # json_data = json.loads(response_data)
+        #     # print(json_data)
 
-            try:
-                new_token = api_client.refresh_oauth2_token()
-            except Exception as e:
-                print(f"Error refreshing token: {e}")
-
-            # proceed with the API call
-            try:
-                read_one_invoice = accounting_api.get_invoice(xero_tenant_id, invoice_id)
-            except AccountingBadRequestException as exception:
-                output = "Error: " + exception.reason
-                json_rlt = jsonify(exception.error_data)
-                return jsonify(exception.error_data), 400
             
-                xero_token = obtain_xero_oauth2_token()
-                new_token = api_client.refresh_oauth2_token()
+            
+        #     accounting_api = AccountingApi(api_client)    
+            
+        #     try:
+        #         refresh_token()
+        #     except Exception as e:
+        #         print(f"Error refreshing token: {e}")
+
+        #     try:
+        #         print("flag2")
+        #         read_one_invoice = accounting_api.get_invoice(xero_tenant_id, invoice_id)
+        #         print("flag3")
+        #     except AccountingBadRequestException as exception:
+        #         print("flag4")
+        #         output = "Error: " + exception.reason
+        #         json_rlt = jsonify(exception.error_data)
+        #         return jsonify(exception.error_data), 400
+            
+        #         xero_token = obtain_xero_oauth2_token()
+        #         new_token = api_client.refresh_oauth2_token()
                 
-            else:
-                output = "Invoice read with id {} ".format(invoice_id)
-                json_rlt = serialize_model(read_one_invoice)
-                print("Here is the new invoice-------------------------------")
-                print(json_rlt)
-                session['invoice_new'] = json_rlt 
-                print("Invoice read ends -------------------------------------")
+        #     else:
+        #         output = "Invoice read with id {} ".format(invoice_id)
+        #         json_rlt = serialize_model(read_one_invoice)
+        #         print("Here is the new invoice-------------------------------")
+        #         print(json_rlt)
+        #         print("Invoice read ends -------------------------------------")
             
-            print("start create the invoice --------------")    
-            # # TODO choose the correct xero-tenant 
+        #     print("start create the invoice --------------")    
+        #     # # TODO choose the correct xero-tenant 
 
         
     
